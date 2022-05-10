@@ -128,12 +128,9 @@ int main(int argc, char* argv[]) {
 
     // Start the timer
     double timeStart = MPI_Wtime();
-    double sortTimeStart = MPI_Wtime();
     // Perform initial local sort
     qsort(localBlock, (size_t)blockSize, sizeof(int), cmpfunc);
-    printf("Sort time: %lf\n", MPI_Wtime()-sortTimeStart);
 
-    double loopTimeStart = MPI_Wtime();
     for (int d = 0; d < dimensionAmount; d++) {
 
         // Calculate new pivot and broadcast it to group
@@ -226,7 +223,6 @@ int main(int argc, char* argv[]) {
         merge(sendArray[receiverCoordinate], recvArray, sendAmount[receiverCoordinate], receiveSize, &localBlock);
 
     }
-    printf("Loop time: %lf\n", MPI_Wtime()-loopTimeStart);
 
     double maxTime;
     double executionTime = MPI_Wtime() - timeStart;
