@@ -33,7 +33,6 @@ int main(int argc, char* argv[]) {
 
     MPI_Status status;
     MPI_Comm nCube, groupComm;
-    MPI_Request send_request_A, recv_request_A, send_request_B, recv_request_B;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
