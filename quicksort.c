@@ -167,7 +167,6 @@ int main(int argc, char* argv[]) {
 
             case 3:
             {
-		printf("I shouldn't be printing\n");
                 // Find median of each process' array
                 pivot = findMedian(localBlock, blockSize);
                 int* medianArray = malloc(sizeof(int) * groupSize);
