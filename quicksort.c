@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
     int groupRank;
     int groupSize;
     int blockSize;
+    int arrayCapacity;
 
     int* input;
     int* output;
@@ -33,6 +34,7 @@ int main(int argc, char* argv[]) {
 
     MPI_Status status;
     MPI_Comm nCube, groupComm;
+    MPI_Request send_request_A, recv_request_A, send_request_B, recv_request_B;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -126,13 +128,15 @@ int main(int argc, char* argv[]) {
 
     // Start the timer
     double timeStart = MPI_Wtime();
-
+    double sortTimeStart = MPI_Wtime();
     // Perform initial local sort
     qsort(localBlock, (size_t)blockSize, sizeof(int), cmpfunc);
+    printf("Sort time: %lf\n", MPI_Wtime()-sortTimeStart);
 
+    double loopTimeStart = MPI_Wtime();
     for (int d = 0; d < dimensionAmount; d++) {
 
-        // Calculate new median and broadcast it to group
+        // Calculate new pivot and broadcast it to group
         switch (chosenStrategy)
         {
             case 1:
@@ -158,10 +162,12 @@ int main(int argc, char* argv[]) {
 
                 }
                 free(medianArray);
+		        break;
             }
 
             case 3:
             {
+		printf("I shouldn't be printing\n");
                 // Find median of each process' array
                 pivot = findMedian(localBlock, blockSize);
                 int* medianArray = malloc(sizeof(int) * groupSize);
@@ -173,6 +179,7 @@ int main(int argc, char* argv[]) {
                     pivot = meanOfArray(medianArray, groupSize);
                 }
                 free(medianArray);
+		        break;
             }
         }
 
@@ -209,18 +216,18 @@ int main(int argc, char* argv[]) {
         // Send the upper or lower part of the local array to destination
         MPI_Sendrecv(&(sendAmount[senderCoordinate]), 1, MPI_INT, destination, 0, &receiveSize, 1, MPI_INT, destination, 0, nCube, &status);
         MPI_Sendrecv(&(sendArray[senderCoordinate][0]), sendAmount[senderCoordinate], MPI_INT, destination, 1, &(recvArray[0]), receiveSize, MPI_INT, destination, 1, nCube, &status);
-        
-        // Allocate more memory if necessary, or reduce size of local array
-        if (blockSize < sendAmount[receiverCoordinate] + receiveSize) {
-            localBlock = realloc(localBlock, (sendAmount[receiverCoordinate]+receiveSize)*sizeof(int));
-            blockSize = sendAmount[receiverCoordinate]+receiveSize;
-        }
-        else if (blockSize > (sendAmount[receiverCoordinate] + receiveSize)) blockSize = sendAmount[receiverCoordinate]+receiveSize;
 
-        // Merge the received array with the array the process kept 
+        blockSize = sendAmount[receiverCoordinate]+receiveSize;
+        // Allocate more memory if necessary
+        if (arrayCapacity < blockSize) {
+            localBlock = realloc(localBlock, (blockSize)*sizeof(int));
+            arrayCapacity = blockSize;
+        }
+
         merge(sendArray[receiverCoordinate], recvArray, sendAmount[receiverCoordinate], receiveSize, &localBlock);
 
     }
+    printf("Loop time: %lf\n", MPI_Wtime()-loopTimeStart);
 
     double maxTime;
     double executionTime = MPI_Wtime() - timeStart;
@@ -242,8 +249,9 @@ int main(int argc, char* argv[]) {
     MPI_Reduce(&executionTime, &maxTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (worldRank == 0) {
-        writeOutput(outputName, output, arraySize);
+        //writeOutput(outputName, output, arraySize);
         printf("%lf\n", maxTime);
+        if (!checkResult(output, arraySize)) printf("The result is wrong!\n");
         free(input);
         free(output);
     }
@@ -379,11 +387,10 @@ int writeOutput(char *fileName, int *output, int arraySize) {
     return 0;
 }
 
-/*
+
 int checkResult(int* result, int arraySize) {
     for (int i = 1; i < arraySize; i++) {
         if (result[i] < result[i-1]) return 0;
     }
     return 1;
 }
-*/
